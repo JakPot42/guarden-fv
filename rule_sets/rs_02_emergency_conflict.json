@@ -1,0 +1,41 @@
+{
+  "rule_set_id": "rs_02_emergency_conflict",
+  "description": "Urban delivery drone — emergency override contradicts absolute altitude floor (expected: FAIL)",
+  "vehicle_class": "urban_delivery_drone",
+  "rules": {
+    "max_altitude": {
+      "rule_name": "§1 Urban Airspace Ceiling",
+      "max_altitude_m": 120,
+      "enabled": true
+    },
+    "min_altitude": {
+      "rule_name": "§2 Absolute Minimum — Pedestrian Safety",
+      "min_altitude_m": 30,
+      "is_absolute": true,
+      "enabled": true
+    },
+    "emergency_descent": {
+      "rule_name": "§3 Battery Critical Emergency Override",
+      "descent_target_altitude_m": 0,
+      "overrides_min_altitude": true,
+      "enabled": true
+    },
+    "signal_loss_hold": {
+      "rule_name": "§4 Signal Loss — Hold Position",
+      "trigger": "signal_loss",
+      "action": "HOLD",
+      "enabled": false
+    },
+    "signal_loss_rth": {
+      "rule_name": "§5 Signal Loss — Return to Home",
+      "trigger": "signal_loss",
+      "action": "RTH",
+      "enabled": true
+    },
+    "rth_battery_threshold": {
+      "rule_name": "§6 Low Battery RTH Trigger",
+      "trigger_battery_pct": 25,
+      "enabled": true
+    }
+  }
+}

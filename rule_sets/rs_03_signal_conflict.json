@@ -1,0 +1,41 @@
+{
+  "rule_set_id": "rs_03_signal_conflict",
+  "description": "Survey drone — contradictory signal-loss responses from two policy sources (expected: FAIL)",
+  "vehicle_class": "survey_drone",
+  "rules": {
+    "max_altitude": {
+      "rule_name": "§1 Survey Operations Ceiling",
+      "max_altitude_m": 100,
+      "enabled": true
+    },
+    "min_altitude": {
+      "rule_name": "§2 Minimum Terrain Clearance",
+      "min_altitude_m": 15,
+      "is_absolute": false,
+      "enabled": true
+    },
+    "emergency_descent": {
+      "rule_name": "§3 Emergency Descent Protocol",
+      "descent_target_altitude_m": 0,
+      "overrides_min_altitude": false,
+      "enabled": true
+    },
+    "signal_loss_hold": {
+      "rule_name": "§4 Signal Loss — Hold Position (Operator Policy)",
+      "trigger": "signal_loss",
+      "action": "HOLD",
+      "enabled": true
+    },
+    "signal_loss_rth": {
+      "rule_name": "§5 Signal Loss — Return to Home (Airframe Default)",
+      "trigger": "signal_loss",
+      "action": "RTH",
+      "enabled": true
+    },
+    "rth_battery_threshold": {
+      "rule_name": "§6 Low Battery RTH Trigger",
+      "trigger_battery_pct": 20,
+      "enabled": true
+    }
+  }
+}
