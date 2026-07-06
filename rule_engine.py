@@ -33,6 +33,16 @@ def _safe_name(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]", "_", name)
 
 
+def _resolve_conflict(solver: Solver, name_map: dict[str, str]) -> list[str]:
+    """Map the solver's real unsat_core() literals back to human-readable names.
+
+    Only returns names Z3 actually reports as part of the minimal
+    unsatisfiable subset -- never assumes every tracked constraint belongs
+    to the conflict just because the overall check came back unsat.
+    """
+    return [name_map.get(str(item), str(item)) for item in solver.unsat_core()]
+
+
 def load_rule_set(path: Path) -> dict:
     with open(path) as f:
         return json.load(f)
@@ -79,14 +89,18 @@ class GuardenVerifier:
         if "max_altitude_m" not in max_rule or "min_altitude_m" not in min_rule:
             return None
 
+        max_name = max_rule["rule_name"]
+        min_name = min_rule["rule_name"]
+
         s = Solver()
         alt = Int("altitude_m")
-        s.assert_and_track(alt <= max_rule["max_altitude_m"], Bool(_safe_name(max_rule["rule_name"])))
-        s.assert_and_track(alt >= min_rule["min_altitude_m"], Bool(_safe_name(min_rule["rule_name"])))
+        s.assert_and_track(alt <= max_rule["max_altitude_m"], Bool(_safe_name(max_name)))
+        s.assert_and_track(alt >= min_rule["min_altitude_m"], Bool(_safe_name(min_name)))
 
         if s.check() == unsat:
+            name_map = {_safe_name(max_name): max_name, _safe_name(min_name): min_name}
             return Conflict(
-                rules=[max_rule["rule_name"], min_rule["rule_name"]],
+                rules=_resolve_conflict(s, name_map),
                 explanation=(
                     f"Altitude range is infeasible: max_altitude_m="
                     f"{max_rule['max_altitude_m']}m is below min_altitude_m="
@@ -115,14 +129,18 @@ class GuardenVerifier:
         if "descent_target_altitude_m" not in emg or "min_altitude_m" not in min_rule:
             return None
 
+        emg_name = emg["rule_name"]
+        min_name = min_rule["rule_name"]
+
         s = Solver()
         alt = Int("emergency_altitude_m")
-        s.assert_and_track(alt <= emg["descent_target_altitude_m"], Bool(_safe_name(emg["rule_name"])))
-        s.assert_and_track(alt >= min_rule["min_altitude_m"], Bool(_safe_name(min_rule["rule_name"])))
+        s.assert_and_track(alt <= emg["descent_target_altitude_m"], Bool(_safe_name(emg_name)))
+        s.assert_and_track(alt >= min_rule["min_altitude_m"], Bool(_safe_name(min_name)))
 
         if s.check() == unsat:
+            name_map = {_safe_name(emg_name): emg_name, _safe_name(min_name): min_name}
             return Conflict(
-                rules=[emg["rule_name"], min_rule["rule_name"]],
+                rules=_resolve_conflict(s, name_map),
                 explanation=(
                     f"Emergency descent to {emg['descent_target_altitude_m']}m "
                     f"contradicts the absolute minimum altitude of "
@@ -144,15 +162,19 @@ class GuardenVerifier:
         if not hold.get("enabled", False) or not rth.get("enabled", False):
             return None
 
+        hold_name = hold["rule_name"]
+        rth_name = rth["rule_name"]
+
         s = Solver()
         action = Int("signal_loss_action")
         # HOLD = 0, RTH = 1
-        s.assert_and_track(action == 0, Bool(_safe_name(hold["rule_name"])))
-        s.assert_and_track(action == 1, Bool(_safe_name(rth["rule_name"])))
+        s.assert_and_track(action == 0, Bool(_safe_name(hold_name)))
+        s.assert_and_track(action == 1, Bool(_safe_name(rth_name)))
 
         if s.check() == unsat:
+            name_map = {_safe_name(hold_name): hold_name, _safe_name(rth_name): rth_name}
             return Conflict(
-                rules=[hold["rule_name"], rth["rule_name"]],
+                rules=_resolve_conflict(s, name_map),
                 explanation=(
                     "Signal-loss response is logically ambiguous: both HOLD_POSITION "
                     "and RETURN_TO_HOME are enabled for the same trigger. "

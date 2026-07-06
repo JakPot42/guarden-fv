@@ -3,9 +3,10 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from z3 import Bool, Int, Solver, unsat
 
 from cli import cli
-from rule_engine import Conflict, GuardenVerifier, VerificationResult, load_rule_set
+from rule_engine import Conflict, GuardenVerifier, VerificationResult, _resolve_conflict, load_rule_set
 
 RULES_DIR = Path(__file__).parent.parent / "rule_sets"
 
@@ -276,6 +277,58 @@ def test_to_dict_fail_with_conflicts():
     assert len(d["conflicts"]) == 1
     assert d["conflicts"][0]["rules"] == ["Rule A", "Rule B"]
     assert "conflict" in d["conflicts"][0]["explanation"].lower()
+
+
+# ---------------------------------------------------------------------------
+# _resolve_conflict — regression test for the unsat_core shortcut bug
+#
+# Every one of GuardenVerifier's 3 real checks tracks exactly 2 boolean-
+# guarded constraints, so a hardcoded "both tracked names are the conflict"
+# answer happened to always match Z3's real unsat_core() -- byte-identical
+# output, verified by every test above still passing after the fix. But
+# that was correct by luck of the checks' current shape, never verified in
+# code. This test proves the fix's actual point: _resolve_conflict must
+# report only the names Z3 says are truly necessary for the contradiction,
+# not every tracked constraint, once a third and unrelated constraint is
+# in the mix (the same 3-constraint feasibility-guard shape
+# lease_translator's notice-vs-term check already needed).
+# ---------------------------------------------------------------------------
+
+def test_resolve_conflict_excludes_unrelated_tracked_constraint():
+    s = Solver()
+    x = Int("x")
+    y = Int("y")
+    low = Bool("rule_low")
+    high = Bool("rule_high")
+    unrelated = Bool("unrelated_rule")
+
+    s.assert_and_track(x <= 10, low)
+    s.assert_and_track(x >= 20, high)      # low + high alone are already UNSAT
+    s.assert_and_track(y == 5, unrelated)  # always satisfiable, irrelevant to the conflict
+
+    assert s.check() == unsat
+
+    name_map = {"rule_low": "Low Rule", "rule_high": "High Rule", "unrelated_rule": "Unrelated Rule"}
+    conflict_names = _resolve_conflict(s, name_map)
+
+    assert "Low Rule" in conflict_names
+    assert "High Rule" in conflict_names
+    assert "Unrelated Rule" not in conflict_names
+
+
+def test_resolve_conflict_matches_hardcoded_answer_for_two_constraint_checks():
+    # Confirms the fix is a no-op for GuardenVerifier's actual current checks,
+    # which is why every existing test above is unaffected.
+    s = Solver()
+    alt = Int("altitude_m")
+    a = Bool("max_rule")
+    b = Bool("min_rule")
+    s.assert_and_track(alt <= 50, a)
+    s.assert_and_track(alt >= 100, b)
+
+    assert s.check() == unsat
+    name_map = {"max_rule": "Max Rule", "min_rule": "Min Rule"}
+    assert set(_resolve_conflict(s, name_map)) == {"Max Rule", "Min Rule"}
 
 
 # ---------------------------------------------------------------------------
