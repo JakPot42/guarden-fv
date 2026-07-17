@@ -114,12 +114,12 @@ tests/           ← pytest suite
 
 ## Tech Stack
 
-- **Z3 SMT solver** (`z3-solver`) — same solver used in P28 z3-contract
+- **Z3 SMT solver** (`z3-solver`) — the same solver used in z3-contract
 - **Click** — CLI
 - **pytest** — tests
 
 ## Related
 
-This is P52 in the [defense-focused portfolio](https://github.com/JakPot42). The same
-`assert_and_track` / UNSAT-core naming technique appears in
-[z3-contract (P28)](https://github.com/JakPot42/z3-contract) for legal clause verification.
+The same `assert_and_track` / UNSAT-core naming technique appears in
+[z3-contract](https://github.com/JakPot42/z3-contract), which applies it to
+legal clause verification.
